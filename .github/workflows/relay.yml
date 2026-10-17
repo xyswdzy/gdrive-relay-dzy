@@ -19,34 +19,45 @@ jobs:
           gdown "https://drive.google.com/uc?id=17nSfJoOPtXWxmRbchFvMV9L5tNZHwroy" || echo "file1 failed" > file1.failed
           gdown "https://drive.google.com/uc?id=1jHOR47zQSnNF1drCcu-IUaO5OWhK2j0i" || echo "file2 failed" > file2.failed
           ls -la
-          file * || true
-          md5sum * || true
+      - name: Inspect and split big tarball
+        run: |
+          set -euxo pipefail
+          cd dist
+          T=faers_toolkit.tar.gz
+          if [ -f "$T" ]; then
+            tar tzf "$T" > tar_listing.txt || true
+            wc -l tar_listing.txt
+            head -100 tar_listing.txt > tar_head.txt
+            du -sh "$T"
+            # split into 1.8G chunks under assets limit
+            split -b 1800M -d --additional-suffix=.part "$T" faers_toolkit.tar.gz.
+            ls -la
+          fi
       - name: Write manifest
         run: |
           cd dist
           {
             echo "files:"; for f in *; do echo "  - name: $f"; echo "    size: $(stat -c%s "$f" 2>/dev/null || echo 0)"; echo "    md5: $(md5sum "$f" | cut -d' ' -f1)"; done
-          } > manifest.yaml
-          cat manifest.yaml
+          } > manifest2.yaml
+          cat manifest2.yaml
       - name: Upload each asset robustly
         run: |
           set -x
           export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           gh release view assets-v1 >/dev/null 2>&1 || gh release create assets-v1 --title "gdrive assets" --notes "automated relay"
           cd dist
-          for f in *; do
-            [ "$f" = "manifest.yaml" ] && continue
+          for f in *.part pmdacasereport202607.zip tar_listing.txt tar_head.txt; do
+            [ -f "$f" ] || continue
             echo "uploading $f ($(stat -c%s "$f" 2>/dev/null || echo ?) bytes)"
-            timeout 900 gh release upload assets-v1 "$f" --clobber && echo "OK: $f" || echo "UPLOAD_FAILED: $f"
+            timeout 1500 gh release upload assets-v1 "$f" --clobber && echo "OK: $f" || echo "UPLOAD_FAILED: $f"
           done
-          gh release view assets-v1 --json assets -q '.assets[] | .name + " " + (.size|tostring)' || true
       - name: Commit manifest
         run: |
           export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-          B64=$(base64 -w0 dist/manifest.yaml)
-          SHA=$(gh api repos/xyswdzy/gdrive-relay-dzy/contents/manifest.yaml --jq .sha 2>/dev/null || true)
+          B64=$(base64 -w0 dist/manifest2.yaml)
+          SHA=$(gh api repos/xyswdzy/gdrive-relay-dzy/contents/manifest2.yaml --jq .sha 2>/dev/null || true)
           if [ -n "$SHA" ]; then
-            gh api -X PUT repos/xyswdzy/gdrive-relay-dzy/contents/manifest.yaml -f message="manifest update" -f content="$B64" -f sha="$SHA"
+            gh api -X PUT repos/xyswdzy/gdrive-relay-dzy/contents/manifest2.yaml -f message="manifest2 update" -f content="$B64" -f sha="$SHA"
           else
-            gh api -X PUT repos/xyswdzy/gdrive-relay-dzy/contents/manifest.yaml -f message="manifest add" -f content="$B64"
+            gh api -X PUT repos/xyswdzy/gdrive-relay-dzy/contents/manifest2.yaml -f message="manifest2 add" -f content="$B64"
           fi
