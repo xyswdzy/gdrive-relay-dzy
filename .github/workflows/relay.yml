@@ -1,0 +1,32 @@
+name: relay
+on: [push]
+permissions:
+  contents: write
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download from Google Drive
+        run: |
+          set -euxo pipefail
+          pip install -q gdown
+          mkdir -p dist
+          cd dist
+          gdown "https://drive.google.com/uc?id=17nSfJoOPtXWxmRbchFvMV9L5tNZHwroy" || echo "file1 failed" > file1.failed
+          gdown "https://drive.google.com/uc?id=1jHOR47zQSnNF1drCcu-IUaO5OWhK2j0i" || echo "file2 failed" > file2.failed
+          ls -la
+          file * || true
+          md5sum * || true
+      - name: Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: assets-v1
+          name: gdrive assets
+          files: dist/*
+          body: |
+            Automated relay of two Google Drive files.
+            See job log for file types and md5.
