@@ -1,0 +1,22 @@
+files:
+  - name: faers_toolkit.tar.gz
+    size: 2653799558
+    md5: 13a44fdd983f1c61a15aecc9bf050a9e
+  - name: faers_toolkit.tar.gz.00.part
+    size: 1887436800
+    md5: 924742552521bd6d9651c7944a5f6efa
+  - name: faers_toolkit.tar.gz.01.part
+    size: 766362758
+    md5: 08766b6fd107d377dc2963348a085f6a
+  - name: manifest2.yaml
+    size: 329
+    md5: b2743d36519d1b86f21baeb52025ea1a
+  - name: pmdacasereport202607.zip
+    size: 140701310
+    md5: 1a46dbecb5b28a5b8a8281e38298a870
+  - name: tar_head.txt
+    size: 904
+    md5: 12d245de494449d8ce46faeff367c063
+  - name: tar_listing.txt
+    size: 904
+    md5: 12d245de494449d8ce46faeff367c063
