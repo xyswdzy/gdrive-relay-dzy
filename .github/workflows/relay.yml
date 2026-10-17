@@ -7,32 +7,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Download from Google Drive
+      - name: Find JADER english version on PMDA
         run: |
-          set -euxo pipefail
-          pip install -q gdown
-          mkdir -p dist
-          cd dist
-          gdown "https://drive.google.com/uc?id=17nSfJoOPtXWxmRbchFvMV9L5tNZHwroy" || echo failed
-          ls -la
-      - name: Extract code-only bundle
-        run: |
-          set -euxo pipefail
-          cd dist
-          T=faers_toolkit.tar.gz
-          tar xzf "$T" --exclude='faers_toolkit/pv_analytics.duckdb'
-          du -sh faers_toolkit
-          find faers_toolkit -type f | sort
-          tar czf faers_toolkit_code_only.tar.gz faers_toolkit
-          ls -la faers_toolkit_code_only.tar.gz
-          md5sum faers_toolkit_code_only.tar.gz
-      - name: Upload code bundle
+          set -x
+          mkdir -p dist && cd dist
+          for Q in "JADER+PMDA+english+version+download" "pmda+adverse+drug+reactions+database+english+csv"; do
+            curl -sL -A "Mozilla/5.0" "https://html.duckduckgo.com/html/?q=$Q" -o ddg_$RANDOM.html || true
+          done
+          grep -hoE 'https?://www\.pmda\.go\.jp/[^"&<> ]+' ddg_*.html | sort -u > pmda_urls.txt || true
+          curl -sL -A "Mozilla/5.0" "https://www.google.com/search?q=site:pmda.go.jp+JADER+english" -o gg.html || true
+          grep -hoE 'https?://www\.pmda\.go\.jp/[^"&<> ]+' gg.html | sort -u >> pmda_urls.txt || true
+          sort -u pmda_urls.txt -o pmda_urls.txt
+          cat pmda_urls.txt || true
+          : > candidates.txt
+          while read -r U; do
+            echo "CRAWL $U"
+            curl -sL -m 30 -A "Mozilla/5.0" "$U" -o page.html || continue
+            grep -hoE 'href="[^"]+\.zip"' page.html | sed 's/href="//;s/"$//' >> candidates.txt || true
+          done < pmda_urls.txt
+          sort -u candidates.txt -o candidates.txt || true
+          cat candidates.txt || true
+          curl -sL -m 30 -A "Mozilla/5.0" "https://www.pmda.go.jp/search/?q=%E8%8B%B1%E8%AA%9E%E7%89%88" -o pmsearch.html || true
+          grep -hoE 'href="[^"]+"' pmsearch.html | sed 's/href="//;s/"$//' | grep -iE '0[0-9]{3}\.html' | head -30 >> pmda_urls.txt || true
+      - name: Upload findings
         run: |
           set -x
           export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           cd dist
-          gh release view assets-v1 >/dev/null 2>&1 || gh release create assets-v1 --title "gdrive assets" --notes "relay"
-          timeout 300 gh release upload assets-v1 faers_toolkit_code_only.tar.gz --clobber && echo OK || echo FAILED
+          ls -la
+          gh release view assets-v1 >/dev/null 2>&1 || gh release create assets-v1 --title relay --notes relay
+          for f in pmda_urls.txt candidates.txt; do [ -f "$f" ] && timeout 120 gh release upload assets-v1 "$f" --clobber; done
