@@ -21,12 +21,12 @@ jobs:
           ls -la
           file * || true
           md5sum * || true
-      - name: Release assets
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: assets-v1
-          name: gdrive assets
-          files: dist/*
-          body: |
-            Automated relay of two Google Drive files.
-            See job log for file types and md5.
+          du -sh * || true
+      - name: Release assets via gh
+        run: |
+          set -euxo pipefail
+          export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          ls -la dist/
+          gh release create assets-v1 --title "gdrive assets" --notes "automated relay" || true
+          gh release upload assets-v1 dist/* --clobber
+          gh release view assets-v1
